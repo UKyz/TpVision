@@ -14,6 +14,14 @@ void onTrackbarSlide(int, void*)
     capture.set(CAP_PROP_POS_FRAMES, slider_pos);
 }
 
+double getCosAlKashi (const Point &A, const Point &B, const Point &C) {
+    double CA = cv::norm(Mat(A), Mat(C));
+    double CB = cv::norm(Mat(B), Mat(C));
+    double AB = cv::norm(Mat(B), Mat(A));
+
+    return (pow(CA, 2) + pow(CB, 2) - pow(AB, 2))/(2*CA*CB);
+}
+
 int main() {
 
     // Declare local variables
@@ -75,7 +83,7 @@ int main() {
         // Find contours
         RNG rng(12345);
         vector<vector<Point>> contours;
-        vector<Point> curve;
+        vector<Point> curves;
         vector<Vec4i> hierarchy;
         findContours( dilation_dst, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
 
@@ -83,20 +91,39 @@ int main() {
         dst_shape = Mat::zeros( dilation_dst.size(), CV_8UC3 );
         for( size_t i = 0; i< contours.size(); i++ ) {
 
-            // Approximation Douglas-Hecker
+            // Approximation Douglas-Peucker
             double perimeter = arcLength(contours[i], true);
-            approxPolyDP(contours[i], curve, 0.02*perimeter, true);
+            approxPolyDP(contours[i], curves, 0.02 * perimeter, true);
 
-            if (contourArea(curve) > 5000 && isContourConvex(curve)) {
+            if (contourArea(curves) > 5000 && isContourConvex(curves)) {
+                if (curves.size() == 3) {
+                    cv::putText(frame, "TRIANGLE", curves[0], cv::FONT_HERSHEY_PLAIN, 2, Scalar(255, 0, 0, 255), 2);
+                    drawContours(frame, contours, (int)i, Scalar(255, 0, 0, 255), 4, 8, hierarchy, 0, Point());
+                } else if (curves.size() == 4) {
+                    double cos1 = getCosAlKashi(curves[2], curves[0], curves[1]);
+                    double cos2 = getCosAlKashi(curves[3], curves[1], curves[2]);
+                    // or si un quadrilatère a deux angle droit alors , tous ces angles sont droits
+                    if (cos1 < 0.1 && cos1 > -0.1 && cos2 < 0.1 && cos2 > -0.1) {
+                        cv::putText(frame, "CARRE", curves[0], cv::FONT_HERSHEY_PLAIN, 2, Scalar(0, 255, 0, 255), 2);
+                        drawContours(frame, contours, (int) i, Scalar(0, 255, 0, 255), 4, 8, hierarchy, 0, Point());
+                    }
+                } else {
+                    Point2f center;
+                    float radius;
 
-                Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-                drawContours(dst_shape, contours, (int)i, color, 4, 8, hierarchy, 0, Point());
+                    minEnclosingCircle(curves, center, radius);
+                    double area = contourArea(curves);
 
+                    if (0.95 * CV_PI * pow(radius, 2) <= area <= 1.05 * CV_PI * pow(radius, 2)) {
+                        putText(frame, "CERCLE", center, FONT_HERSHEY_PLAIN, 2, Scalar(0, 0, 255, 255), 2);
+                        drawContours(frame, contours, (int)i, Scalar(0, 0, 255, 255), 4, 8, hierarchy, 0, Point());
+                    }
+                }
             }
         }
 
         // Display the frame
-        imshow( window_name, dst_shape );
+        imshow( window_name, frame );
 
         // Press escape to quit
         if( waitKey(40) == 27 ) break;
@@ -104,6 +131,18 @@ int main() {
         // Update the position of trackbar
         setTrackbarPos( trackbar_name, window_name, slider_pos );
         slider_pos++;
+
+        // Get the actual frame
+        int nextFrame = static_cast<int>(capture.get(CAP_PROP_POS_FRAMES));
+
+        // If the frame is the last one, put back to 0
+        if (nextFrame == count_frames) {
+            nextFrame = 0;
+            setTrackbarPos(trackbar_name, window_name, nextFrame);
+            cout << "Pour redémarrer appuyez sur n'importe quelle touche (à part espace)" << endl;
+            waitKey(0);
+        }
+
     }
 
     // Reset to initial trackbar position
