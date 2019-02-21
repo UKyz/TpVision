@@ -97,23 +97,27 @@ int main() {
 
             if (contourArea(curves) > 5000 && isContourConvex(curves)) {
                 if (curves.size() == 3) {
+                    // if we have 3 corner we have a triangle
                     cv::putText(frame, "TRIANGLE", curves[0], cv::FONT_HERSHEY_PLAIN, 2, Scalar(255, 0, 0, 255), 2);
                     drawContours(frame, contours, (int)i, Scalar(255, 0, 0, 255), 4, 8, hierarchy, 0, Point());
                 } else if (curves.size() == 4) {
+                    // If 4 angle are right-angled so we have a rectangle
                     double cos1 = getCosAlKashi(curves[2], curves[0], curves[1]);
                     double cos2 = getCosAlKashi(curves[3], curves[1], curves[2]);
-                    // or si un quadrilatère a deux angle droit alors , tous ces angles sont droits
-                    if (cos1 < 0.1 && cos1 > -0.1 && cos2 < 0.1 && cos2 > -0.1) {
+                    double cos3 = getCosAlKashi(curves[0], curves[2], curves[3]);
+                    double cos4 = getCosAlKashi(curves[1], curves[3], curves[2]);
+                    cout << cos3 << endl;
+                    if (cos1 < 0.1 && cos1 > -0.1 && cos2 < 0.1 && cos2 > -0.1 &&
+                            cos3 < 0.1 && cos3 > -0.1 && cos4 < 0.1 && cos4 > -0.1) {
                         cv::putText(frame, "CARRE", curves[0], cv::FONT_HERSHEY_PLAIN, 2, Scalar(0, 255, 0, 255), 2);
                         drawContours(frame, contours, (int) i, Scalar(0, 255, 0, 255), 4, 8, hierarchy, 0, Point());
                     }
                 } else {
+                    // If we have the area close equal from the surface so we have a circle
                     Point2f center;
                     float radius;
-
                     minEnclosingCircle(curves, center, radius);
                     double area = contourArea(curves);
-
                     if (0.95 * CV_PI * pow(radius, 2) <= area <= 1.05 * CV_PI * pow(radius, 2)) {
                         putText(frame, "CERCLE", center, FONT_HERSHEY_PLAIN, 2, Scalar(0, 0, 255, 255), 2);
                         drawContours(frame, contours, (int)i, Scalar(0, 0, 255, 255), 4, 8, hierarchy, 0, Point());
