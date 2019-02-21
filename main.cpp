@@ -21,7 +21,7 @@ int main() {
     const char *trackbar_name = "Slider";
     slider_pos = 0;
 
-    Mat frame, frameGray, dst2, dilation_dst, dst_shape, shape;
+    Mat frame, frameGray, dst2, dilation_dst, dst_shape, shape, dst_res;
 
     // Open the video
     capture.open( "images/video.MOV" );
@@ -73,18 +73,26 @@ int main() {
         dilate( dst2, dilation_dst, dilatation_element );
 
         // Find contours
-        int thresh = 100;
         RNG rng(12345);
-        vector<vector<Point> > contours;
+        vector<vector<Point>> contours;
+        vector<Point> curve;
         vector<Vec4i> hierarchy;
         findContours( dilation_dst, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
 
         // Draw contours
         dst_shape = Mat::zeros( dilation_dst.size(), CV_8UC3 );
-        for( size_t i = 0; i< contours.size(); i++ )
-        {
-            Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-            drawContours( dst_shape, contours, (int)i, color, 2, 8, hierarchy, 0, Point() );
+        for( size_t i = 0; i< contours.size(); i++ ) {
+
+            // Approximation Douglas-Hecker
+            double perimeter = arcLength(contours[i], true);
+            approxPolyDP(contours[i], curve, 0.02*perimeter, true);
+
+            if (contourArea(curve) > 5000 && isContourConvex(curve)) {
+
+                Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+                drawContours(dst_shape, contours, (int)i, color, 4, 8, hierarchy, 0, Point());
+
+            }
         }
 
         // Display the frame
